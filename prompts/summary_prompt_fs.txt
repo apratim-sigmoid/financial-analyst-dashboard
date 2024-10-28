@@ -1,0 +1,11 @@
+Please provide a detailed executive summary of the latest financial statement. Emphasize key financial metrics and trends found in the data, and categorize the insights into performance indicators (such as revenue growth, profit margins, expense trends, and cash flow developments). Highlight critical data rows that are especially relevant for shareholder and business decision-making. Include both positive and negative aspects in the analysis to provide a balanced view.
+
+Please structure the summary as follows:
+1. Overview of Financial Performance
+2. Key Financial Highlights:
+   - Revenue and Profit Trends
+   - Expense and Cost Analysis
+   - Cash Flow Statement Highlights
+3. Positive Aspects
+4. Areas of Concern
+5. Conclusion and Recommendations for Stakeholders

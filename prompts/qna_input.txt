@@ -1,0 +1,8 @@
+
+#### Context: 
+```{__texts__}```
+
+#### Query: 
+```{__user_query__}```
+
+Respond in the specified JSON format, ensuring the answer is chunked appropriately based on whether plots are required or not.

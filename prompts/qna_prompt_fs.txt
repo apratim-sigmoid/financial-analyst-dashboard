@@ -1,0 +1,3 @@
+Comprehensively answer the user query based on the context provided. If user query pose any ambiguity then make reasonable assumption given the context (e.g., Abbreviations, formula). Context contain the text extracted from Financial Statement using text-loaders in python and therefore it lacks structured text.
+
+### User Query: "{__user_query__}"
