@@ -11,39 +11,35 @@ import utils.response_generation as response_generation
 
 @st.cache_data(persist=True)
 def load_prompts():
-    # Summary Prompt
-    with open("prompts/summary_prompt.txt", "r") as f:
-        summary_prompt = f.read()
-
-    f.close()
-
-    # Question-Answering Prompt
-    with open("prompts/qna_instructions_example.txt", "r") as f:
-        qna_instructions_example = f.read()
-
-    f.close()
-
-    # Question-Answering Prompt
-    with open("prompts/qna_input.txt", "r") as f:
-        qna_input = f.read()
-
-    f.close()
-
-    # Question-Answering Prompt
-    with open("prompts/chunk_template.txt", "r") as f:
-        chunk_template = f.read()
-
-    f.close()
-
-    return summary_prompt, qna_instructions_example, qna_input, chunk_template
+    """Load prompt files with explicit UTF-8 encoding"""
+    prompts = {}
+    prompt_files = {
+        'summary_prompt': "prompts/summary_prompt.txt",
+        'qna_instructions_example': "prompts/qna_instructions_example.txt",
+        'qna_input': "prompts/qna_input.txt",
+        'chunk_template': "prompts/chunk_template.txt"
+    }
+    
+    for key, filepath in prompt_files.items():
+        try:
+            with open(filepath, "r", encoding='utf-8') as f:
+                prompts[key] = f.read()
+        except UnicodeDecodeError:
+            # Fallback to latin-1 if UTF-8 fails
+            with open(filepath, "r", encoding='latin-1') as f:
+                prompts[key] = f.read()
+    
+    return (prompts['summary_prompt'], prompts['qna_instructions_example'], 
+            prompts['qna_input'], prompts['chunk_template'])
 
 @st.cache_data(persist=True)
 def load_config():
-    """Loads configuration from config.ini file"""
-    # Initialize & Read configuration files
+    """Loads configuration from config.ini file with explicit encoding"""
     config_object = ConfigParser()
-    config_object.read("config.ini")
-
+    try:
+        config_object.read("config.ini", encoding='utf-8')
+    except UnicodeDecodeError:
+        config_object.read("config.ini", encoding='latin-1')
 
     # Load Objects
     logo = Image.open(config_object["IMAGES"]["logo_address"]) 
@@ -57,20 +53,13 @@ def load_config():
 
 @st.cache_data(persist=True)
 def main_page_header(_logo):
-    """
-    Description: Render main page header.
-    """
+    """Render main page header."""
     col1, _ = st.columns([1, 7])
-
     col1.image(_logo)
     st.markdown("###### Demo Tool")
-    
-    return
 
 def main():
-    """
-    Description: Main function to run the streamlit application.
-    """
+    """Main function to run the streamlit application."""
     st.set_page_config(
         page_title="Demo Tool",
         layout="wide",
@@ -90,100 +79,71 @@ def main():
 
     with tab1:
         st.markdown(msgs["introduction"])
-                
-        # Check key uploaded by the user
         widgets.check_key()
-        
-        # Ask user to upload the file(s)
         input_choice, file = widgets.data_upload()
 
-        # Parse PDF ----------------------------------------------------------------------------------------------
         if file is not None and "db" not in st.session_state:
             with st.spinner("Processing Documents"):
-                file_type, pages, db, embedding_fn = document_processing.process_document(input_choice, file, st.session_state["openai_api_key"])
-                st.session_state["file_type"] = file_type
-                st.session_state["pages"] = pages
-                st.session_state["db"] = db
-                st.session_state["embedding_fn"] = embedding_fn
+                file_type, pages, db, embedding_fn = document_processing.process_document(
+                    input_choice, file, st.session_state["openai_api_key"])
+                st.session_state.update({
+                    "file_type": file_type,
+                    "pages": pages,
+                    "db": db,
+                    "embedding_fn": embedding_fn
+                })
                 st.rerun()
-        # --------------------------------------------------------------------------------------------------------
 
     with tab2:
-        # Generate response using Chat Completion API ------------------------------------------------------------
         if "db" in st.session_state:
             if st.session_state["file_type"] == "csv":
                 st.markdown("At present, the tool supports summary generation only for PDF files.")
             else:
                 if "summary" not in st.session_state and st.button("Click here to generate summary"):
                     with st.spinner("Crafting your summary ..."):
-                        # # Pass whole content
-                        # context = ""
-                        # for i in range(len(st.session_state["pages"])):
-                        #     context += f"### Page {st.session_state["pages"][i].metadata["page"]}\n\n" + st.session_state["pages"][i].page_content + "\n\n"
+                        response, output_words, output_token = response_generation.summary_generation(
+                            st.session_state["pages"], 
+                            st.session_state["openai_api_key"], 
+                            llm_model
+                        )
 
-                        # # Generate response
-                        # response, output_words, output_tokens = response_generation.chat_completion(
-                        #     api_key=st.session_state["openai_api_key"], model=llm_model, prompt=summary_prompt.format(__texts__=context), max_tokens=4000
-                        # )
-                        response, output_words, output_token = response_generation.summary_generation(st.session_state["pages"], st.session_state["openai_api_key"], llm_model)
-
-                        # Storing Output
-                        st.session_state["summary"] = response.replace("$", "&#36;")
-                        st.session_state["output_words"] = output_words
-                        st.session_state["output_tokens"] = output_token
+                        st.session_state.update({
+                            "summary": response.replace("$", "&#36;"),
+                            "output_words": output_words,
+                            "output_tokens": output_token
+                        })
                         
-                        # try:
-                        #     response_generation.response_with_plots(response, True)
-                        # except:
-                        #     response_generation.text_response(response, st.session_state["openai_api_key"], llm_model, False)
                         st.markdown(st.session_state["summary"], unsafe_allow_html=True)
-                        st.markdown(f"**:blue[Words]**: :grey[{st.session_state["output_words"]}], **:blue[Tokens]**: :grey[{st.session_state["output_tokens"]}]")
+                        st.markdown(f"**:blue[Words]**: :grey[{st.session_state['output_words']}], "
+                                  f"**:blue[Tokens]**: :grey[{st.session_state['output_tokens']}]")
                         st.rerun()
 
-
             if "summary" in st.session_state:
-                # try:
-                #     response_generation.response_with_plots(st.session_state["summary"], False)
-                # except:
-                #     st.markdown(f"Encountered an error while generating plots - Generating only text output")
-                #     response_generation.text_response(st.session_state["summary"], st.session_state["openai_api_key"], llm_model, False)
                 st.markdown(st.session_state["summary"], unsafe_allow_html=True)
-                st.markdown(f"**:blue[Words]**: :grey[{st.session_state["output_words"]}], **:blue[Tokens]**: :grey[{st.session_state["output_tokens"]}]")
-        # --------------------------------------------------------------------------------------------------------
-
+                st.markdown(f"**:blue[Words]**: :grey[{st.session_state['output_words']}], "
+                          f"**:blue[Tokens]**: :grey[{st.session_state['output_tokens']}]")
         else:
             st.markdown("Kindly upload the necessary files to utilize this page.")
 
     with tab3:
-        # Generate response using Openai file-search
         if "db" in st.session_state:
             if user_input := st.chat_input("Ask here!", key="user_input"):
-                # Re-initialize emtpy chat (Currently, we are not storing history)
                 st.session_state.messages = []
-
-                # Add User Query into the message
                 st.session_state.messages.append({"role": "user", "content": user_input})
                 
-                # Show user query
                 with st.chat_message("user"):
                     st.markdown(user_input)
 
-                # Generate Response and show
                 with st.chat_message("assistant"):
                     with st.spinner("Crafting Response"):       
-                        
-                        # Chat Completion API --------------------------------------------------------------------
-
                         if st.session_state["file_type"] == "csv":
-                            # Generate response for CSV
                             context = response_generation.response_for_csv(
-                                user_input, st.session_state["db"], st.session_state["openai_api_key"], llm_model, st.session_state["pages"]
+                                user_input, st.session_state["db"], 
+                                st.session_state["openai_api_key"], 
+                                llm_model, st.session_state["pages"]
                             )
-                            print(">"*3, "response from agent", context)
                         else:
-                            # Filter Context
                             user_query_vectors = st.session_state["embedding_fn"].embed_documents([user_input])
-
                             filtered_results = st.session_state["db"].search(
                                 collection_name="demo_collection",        
                                 data=user_query_vectors,               
@@ -191,42 +151,33 @@ def main():
                                 output_fields=["text", "source", "page"],
                             )
 
-                            # Prepare Input Context
-                            context = ""
-                            for chunk in filtered_results[0]:
-                                context += chunk_template.format(page=chunk["entity"]["page"]+1, content=chunk["entity"]["text"])
+                            context = "".join(
+                                chunk_template.format(
+                                    page=chunk["entity"]["page"]+1, 
+                                    content=chunk["entity"]["text"]
+                                ) for chunk in filtered_results[0]
+                            )
                             
-                        st.session_state["prompt"] = qna_instructions_example + qna_input.format(__texts__=context, __user_query__=user_input)
+                        st.session_state["prompt"] = (qna_instructions_example + 
+                            qna_input.format(__texts__=context, __user_query__=user_input))
                             
-                        # Generate Response
-                        response, _, _= response_generation.chat_completion(
-                            api_key=st.session_state["openai_api_key"], model=llm_model, 
+                        response, _, _ = response_generation.chat_completion(
+                            api_key=st.session_state["openai_api_key"],
+                            model=llm_model, 
                             prompt=st.session_state["prompt"],
                             max_tokens=1000,
                         )   
-                        #-----------------------------------------------------------------------------------------
-
-                      
-                    # Save Input & Output & Retrieval Results
-                    # f = open("logs/input.txt", "w")
-                    # f.write(st.session_state["prompt"])
-                    # f.close()
-
-                    # f = open("logs/output.txt", "w")
-                    # f.write(json.dumps(response))
-                    # f.close()
 
                     try:
                         response_generation.response_with_plots(response, True)
                     except:
                         st.rerun()
-                        st.markdown(f"Encountered an error while generating plots - Generating only text output")
-                        response_generation.text_response(response, st.session_state["openai_api_key"], llm_model, False)
+                        st.markdown("Encountered an error while generating plots - Generating only text output")
+                        response_generation.text_response(response, st.session_state["openai_api_key"], 
+                                                       llm_model, False)
 
-                    # Store Response
                     st.session_state.messages.append({"role": "assistant", "content": response})
             else:
-                # Show last QA pair
                 if "messages" in st.session_state:
                     for message in st.session_state.messages:
                         with st.chat_message(message["role"]):
@@ -234,15 +185,13 @@ def main():
                                 try:
                                     response_generation.response_with_plots(message["content"], False)
                                 except:
-                                    response_generation.text_response(message["content"], st.session_state["openai_api_key"], llm_model, False)
+                                    response_generation.text_response(message["content"], 
+                                                                   st.session_state["openai_api_key"], 
+                                                                   llm_model, False)
                             else:
                                 st.markdown(message["content"], unsafe_allow_html=False)
-                        
-                            
         else:
             st.markdown("Kindly upload the necessary files to utilize this page.")
 
-    return
-
 if __name__ == "__main__":
-  main()
+    main()
