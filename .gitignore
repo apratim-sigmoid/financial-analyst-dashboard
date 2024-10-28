@@ -1,0 +1,19 @@
+# Python Notebooks
+*.ipynb
+
+# Temporary files
+*.pyc
+__pycache__/
+*.~
+
+# Virtual environment
+venv/
+
+# DBs & txt file
+*.db
+*.txt
+*.lock
+
+# Test data files
+*.pdf
+*.csv

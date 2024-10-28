@@ -1,0 +1,11 @@
+streamlit==1.35.0
+streamlit-authenticator==0.3.2
+plotly==5.18.0
+openai==1.30.5
+tiktoken==0.7.0
+langchain-openai==0.1.8
+langchain-community==0.2.5
+pdfplumber==0.11.0
+pypdf==4.2.0
+pymilvus==2.4.3
+rank-bm25==0.2.2
