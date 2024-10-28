@@ -11,8 +11,9 @@ import utils.response_generation as response_generation
 
 @st.cache_data(persist=True)
 def load_prompts():
-    """Load prompt files with explicit UTF-8 encoding"""
-    prompts = {}
+    """Load prompt files with detailed error handling and logging"""
+    import traceback
+    
     prompt_files = {
         'summary_prompt': "prompts/summary_prompt.txt",
         'qna_instructions_example': "prompts/qna_instructions_example.txt",
@@ -20,17 +21,40 @@ def load_prompts():
         'chunk_template': "prompts/chunk_template.txt"
     }
     
-    for key, filepath in prompt_files.items():
-        try:
-            with open(filepath, "r", encoding='utf-8') as f:
-                prompts[key] = f.read()
-        except UnicodeDecodeError:
-            # Fallback to latin-1 if UTF-8 fails
-            with open(filepath, "r", encoding='latin-1') as f:
-                prompts[key] = f.read()
+    results = {}
     
-    return (prompts['summary_prompt'], prompts['qna_instructions_example'], 
-            prompts['qna_input'], prompts['chunk_template'])
+    for key, filepath in prompt_files.items():
+        st.write(f"Attempting to read {filepath}")  # Debug log
+        
+        # Try different encodings
+        encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'ascii']
+        success = False
+        
+        for encoding in encodings:
+            try:
+                with open(filepath, "r", encoding=encoding) as f:
+                    content = f.read()
+                    results[key] = content
+                    st.write(f"Successfully read {filepath} with {encoding} encoding")  # Debug log
+                    success = True
+                    break
+            except UnicodeDecodeError as e:
+                st.write(f"Failed to read {filepath} with {encoding} encoding: {str(e)}")  # Debug log
+                continue
+            except FileNotFoundError:
+                st.error(f"File not found: {filepath}")
+                raise
+            except Exception as e:
+                st.error(f"Unexpected error reading {filepath}: {str(e)}")
+                st.write(traceback.format_exc())  # Full traceback
+                raise
+        
+        if not success:
+            st.error(f"Failed to read {filepath} with any encoding")
+            raise ValueError(f"Could not read {filepath} with any supported encoding")
+    
+    return (results['summary_prompt'], results['qna_instructions_example'], 
+            results['qna_input'], results['chunk_template'])
 
 @st.cache_data(persist=True)
 def load_config():
